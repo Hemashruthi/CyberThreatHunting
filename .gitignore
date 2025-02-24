@@ -1,0 +1,15 @@
+# Ignore virtual environment
+venv/
+
+# Ignore logs and large files (optional)
+data/logs.db
+data/log_embeddings.pkl
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
