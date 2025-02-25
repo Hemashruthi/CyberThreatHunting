@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 import sqlite3
 import pandas as pd
-import numpy as np  # Added for array processing
+import numpy as np
 
 # Load SecBERT model & tokenizer
 model_name = "jackaduma/SecBERT"
@@ -15,7 +15,7 @@ df = pd.read_csv("../data/preprocessed_logs.csv").head(1000)
 conn.close()
 
 # Print column names for debugging
-print("✅ Available Columns:", df.columns)
+print("Available Columns:", df.columns)
 
 # Construct `llm_input` column
 df["llm_input"] = (
@@ -25,7 +25,7 @@ df["llm_input"] = (
     df["Protocol"].astype(str) + " | " +
     df["Info"].astype(str)
 )
-print("✅ llm_input column created!")
+print("llm_input column created!")
 
 # Batch processing logs into embeddings
 texts = df["llm_input"].tolist()  # List of log texts
@@ -49,7 +49,7 @@ for i in range(0, len(texts), batch_size):
         outputs = model(**inputs)
     
     # Extract embeddings
-    embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+    embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
 
     # Ensure correct shape for single batch items
     if embeddings.ndim == 1:
@@ -64,4 +64,4 @@ df["log_embedding"] = list(all_embeddings)
 # Save embeddings for later use
 df.to_pickle("../data/log_embeddings.pkl")
 
-print("✅ Successfully processed 1000 logs and saved embeddings!")
+print("Successfully processed 1000 logs and saved embeddings!")
