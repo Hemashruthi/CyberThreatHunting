@@ -15,7 +15,7 @@ df = pd.read_csv("../data/preprocessed_logs.csv").head(1000)
 conn.close()
 
 # Print column names for debugging
-print("Available Columns:", df.columns)
+print("✅ Available Columns:", df.columns)
 
 # Construct `llm_input` column
 df["llm_input"] = (
@@ -25,7 +25,7 @@ df["llm_input"] = (
     df["Protocol"].astype(str) + " | " +
     df["Info"].astype(str)
 )
-print("llm_input column created!")
+print("✅ llm_input column created!")
 
 # Batch processing logs into embeddings
 texts = df["llm_input"].tolist()  # List of log texts
@@ -59,9 +59,8 @@ for i in range(0, len(texts), batch_size):
 
 # Concatenate all batch embeddings into a single array
 all_embeddings = np.concatenate(all_embeddings, axis=0)
-df["log_embedding"] = list(all_embeddings)
 
 # Save embeddings for later use
-df.to_pickle("../data/log_embeddings.pkl")
+np.save("../data/log_embeddings.npy", all_embeddings)
 
-print("Successfully processed 1000 logs and saved embeddings!")
+print("✅ Successfully processed 1000 logs and saved embeddings!")
