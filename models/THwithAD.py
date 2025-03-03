@@ -2,6 +2,7 @@ import numpy as np
 import faiss
 import json
 import pandas as pd
+import random
 from sklearn.ensemble import IsolationForest
 
 # File paths
@@ -13,34 +14,14 @@ mitre_data_path = "../data/mitre_dataset_1000.json"
 
 # Threshold for classifying events as suspicious
 confidence_threshold = 0.0055
+sample_size = 1000  # Sample size for logs
 
 def convert_to_serializable(obj):
     if isinstance(obj, np.int64):
         return int(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-try:
-    # Load log embeddings and metadata
-    log_embeddings = np.load(log_embeddings_path, allow_pickle=True)
-    log_metadata = pd.read_csv(log_metadata_path).head(1000)  # Ensure alignment with embeddings
-
-    # Print column names for debugging
-    print("✅ Available Columns in log_metadata:", log_metadata.columns)
-
-    mitre_embeddings = np.load(mitre_embeddings_path, allow_pickle=True)
-
-    # Load MITRE ATT&CK IDs and descriptions
-    with open(mitre_ids_path, "r") as f:
-        mitre_ids = json.load(f)
-    with open(mitre_data_path, "r", encoding="utf-8") as f:
-        mitre_data = json.load(f)
-
-    # Ensure log_embeddings is a numpy array of floats
-    if not isinstance(log_embeddings, np.ndarray):
-        raise ValueError("log_embeddings should be a numpy array")
-    if log_embeddings.dtype != np.float32 and log_embeddings.dtype != np.float64:
-        log_embeddings = log_embeddings.astype(np.float32)
-
+def hypothesis_generation(log_embeddings, log_metadata, mitre_embeddings, mitre_ids, mitre_data, confidence_threshold):
     # Create FAISS index for MITRE ATT&CK embeddings
     dimension = mitre_embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)
@@ -55,7 +36,7 @@ try:
     detected_log_ids = set()
     for log_idx, distances, indices in zip(range(len(log_embeddings)), D, I):
         # Extract log metadata
-        log_id = log_idx  # Use the index as the unique identifier
+        log_id = log_metadata.iloc[log_idx]["No_"]  # Use the "No_" column as the unique identifier
         timestamp = log_metadata.iloc[log_idx]["Time"]
         source_ip = log_metadata.iloc[log_idx]["Source"]
         destination_ip = log_metadata.iloc[log_idx]["Destination"]
@@ -82,53 +63,89 @@ try:
                     "mitre_attack_name": mitre_attack_name,
                     "confidence_score": float(confidence_score),
                     "risk_level": "High",  # Since only high-confidence events are included
-                    "suggested_mitigation": "Monitor process injection activity, enable security logging, and restrict rundll32 execution."  # Example mitigation, adjust based on your criteria
+                    "suggested_mitigation": "Apply general best security practices and monitor for unusual activity."  # Generic mitigation
                 }
 
                 hypotheses.append(hypothesis)
                 detected_log_ids.add(log_id)
 
-    # Anomaly detection for unknown threats
-    def anomaly_detection(log_embeddings, log_metadata, detected_log_ids):
-        # Filter out known threats
-        unknown_log_embeddings = np.array([log_embeddings[i] for i in range(len(log_embeddings)) if i not in detected_log_ids])
-        unknown_log_metadata = log_metadata[~log_metadata.index.isin(detected_log_ids)]
+    return hypotheses, detected_log_ids
 
-        # Anomaly detection using Isolation Forest
-        model = IsolationForest(contamination=0.01, random_state=42)
-        model.fit(unknown_log_embeddings)
-        anomaly_scores = model.decision_function(unknown_log_embeddings)
-        anomalies = model.predict(unknown_log_embeddings)
+def anomaly_detection(log_embeddings, log_metadata, detected_log_ids):
+    # Filter out known threats
+    unknown_log_embeddings = np.array([log_embeddings[i] for i in range(len(log_embeddings)) if log_metadata.iloc[i]["No_"] not in detected_log_ids])
+    unknown_log_metadata = log_metadata[~log_metadata["No_"].isin(detected_log_ids)]
 
-        anomaly_hypotheses = []
-        for idx, (score, anomaly) in enumerate(zip(anomaly_scores, anomalies)):
-            if anomaly == -1:  # Anomaly detected
-                log_id = unknown_log_metadata.index[idx]  # Use the index as the unique identifier
-                timestamp = unknown_log_metadata.iloc[idx]["Time"]
-                source_ip = unknown_log_metadata.iloc[idx]["Source"]
-                destination_ip = unknown_log_metadata.iloc[idx]["Destination"]
-                protocol = unknown_log_metadata.iloc[idx]["Protocol"]
-                event_type = unknown_log_metadata.iloc[idx]["Info"]
-                raw_log_message = unknown_log_metadata.iloc[idx]["Info"]
+    # Anomaly detection using Isolation Forest
+    model = IsolationForest(contamination=0.01, random_state=42)
+    model.fit(unknown_log_embeddings)
+    anomaly_scores = model.decision_function(unknown_log_embeddings)
+    anomalies = model.predict(unknown_log_embeddings)
 
-                hypothesis = {
-                    "log_id": log_id,
-                    "timestamp": timestamp,
-                    "source_ip": source_ip,
-                    "destination_ip": destination_ip,
-                    "protocol": protocol,
-                    "event_type": event_type,
-                    "anomaly_score": float(score),
-                  #  "risk_level": "High",  # Since anomalies are considered high risk
-                   # "suggested_mitigation": "Investigate the unusual pattern of behavior and apply appropriate security measures."  # Example mitigation, adjust based on your criteria
-                }
+    anomaly_hypotheses = []
+    for idx, (score, anomaly) in enumerate(zip(anomaly_scores, anomalies)):
+        if anomaly == -1:  # Anomaly detected
+            log_id = unknown_log_metadata.iloc[idx]["No_"]  # Use the "No_" column as the unique identifier
+            timestamp = unknown_log_metadata.iloc[idx]["Time"]
+            source_ip = unknown_log_metadata.iloc[idx]["Source"]
+            destination_ip = unknown_log_metadata.iloc[idx]["Destination"]
+            protocol = unknown_log_metadata.iloc[idx]["Protocol"]
+            event_type = unknown_log_metadata.iloc[idx]["Info"]
+            raw_log_message = unknown_log_metadata.iloc[idx]["Info"]
 
-                anomaly_hypotheses.append(hypothesis)
+            hypothesis = {
+                "log_id": log_id,
+                "timestamp": timestamp,
+                "source_ip": source_ip,
+                "destination_ip": destination_ip,
+                "protocol": protocol,
+                "event_type": event_type,
+                "anomaly_score": float(score),
+                "risk_level": "High",  # Since anomalies are considered high risk
+                "suggested_mitigation": "Investigate the unusual pattern of behavior and apply appropriate security measures."  # Example mitigation for unknown threats
+            }
 
-        return anomaly_hypotheses
+            anomaly_hypotheses.append(hypothesis)
+
+    return anomaly_hypotheses
+
+try:
+    # Load log embeddings and metadata
+    log_embeddings = np.load(log_embeddings_path, allow_pickle=True)
+    log_metadata = pd.read_csv(log_metadata_path)
+
+    # Ensure alignment with embeddings
+    if len(log_embeddings) != len(log_metadata):
+        # Align log_metadata with log_embeddings
+        log_metadata = log_metadata.iloc[:len(log_embeddings)]
+    
+    # Sample 1000 logs randomly
+    sample_indices = random.sample(range(len(log_embeddings)), sample_size)
+    sampled_log_embeddings = log_embeddings[sample_indices]
+    sampled_log_metadata = log_metadata.iloc[sample_indices].reset_index(drop=True)
+
+    # Print column names for debugging
+    print("✅ Available Columns in log_metadata:", sampled_log_metadata.columns)
+
+    mitre_embeddings = np.load(mitre_embeddings_path, allow_pickle=True)
+
+    # Load MITRE ATT&CK IDs and descriptions
+    with open(mitre_ids_path, "r") as f:
+        mitre_ids = json.load(f)
+    with open(mitre_data_path, "r", encoding="utf-8") as f:
+        mitre_data = json.load(f)
+
+    # Ensure log_embeddings is a numpy array of floats
+    if not isinstance(sampled_log_embeddings, np.ndarray):
+        raise ValueError("log_embeddings should be a numpy array")
+    if sampled_log_embeddings.dtype != np.float32 and sampled_log_embeddings.dtype != np.float64:
+        sampled_log_embeddings = sampled_log_embeddings.astype(np.float32)
+
+    # Run hypothesis generation
+    hypotheses, detected_log_ids = hypothesis_generation(sampled_log_embeddings, sampled_log_metadata, mitre_embeddings, mitre_ids, mitre_data, confidence_threshold)
 
     # Run anomaly detection
-    anomaly_hypotheses = anomaly_detection(log_embeddings, log_metadata, detected_log_ids)
+    anomaly_hypotheses = anomaly_detection(sampled_log_embeddings, sampled_log_metadata, detected_log_ids)
 
     # Combine hypotheses and anomalies
     all_hypotheses = hypotheses + anomaly_hypotheses

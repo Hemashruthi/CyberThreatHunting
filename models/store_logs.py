@@ -29,4 +29,4 @@ df.to_sql("network_logs", conn, if_exists="replace", index=False)
 conn.commit()
 conn.close()
 
-print("✅ Logs stored successfully in SQLite!")
+print("Logs stored successfully in SQLite!")

@@ -11,5 +11,5 @@ df = pd.read_sql_query(query, conn)
 conn.close()
 
 # Display retrieved logs
-print("✅ Retrieved Logs from SQLite:")
+print("Retrieved Logs from SQLite:")
 print(df.head())

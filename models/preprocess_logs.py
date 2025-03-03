@@ -7,7 +7,7 @@ df = pd.read_sql_query("SELECT * FROM network_logs;", conn)
 conn.close()
 
 # Print column names to debug issues
-print("✅ Columns in dataset:", df.columns)
+print("Columns in dataset:", df.columns)
 
 # Drop empty values
 df = df.dropna()
@@ -28,7 +28,7 @@ available_columns = [col for col in required_columns if col in df.columns]
 if len(available_columns) == len(required_columns):
     df["llm_input"] = df["timestamp"] + " | " + df["source_ip"] + " | " + df["event_type"] + " | " + df["log_message"]
 else:
-    print(f"⚠ Warning: Some required columns are missing! Found: {df.columns}")
+    print(f"Warning: Some required columns are missing! Found: {df.columns}")
 
 # Save preprocessed data
 df.to_csv("../data/preprocessed_logs.csv", index=False)
