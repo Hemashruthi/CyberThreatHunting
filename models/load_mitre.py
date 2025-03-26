@@ -48,7 +48,7 @@ else:
     raise TypeError("❌ mitre_attacks is not a dictionary! Check JSON format.")
 mitre_ids = list(mitre_attacks.keys())
 
-print("✅ Sample MITRE texts:")
+print("Sample MITRE texts:")
 
 # Batch Processing for MITRE ATT&CK embeddings
 batch_size = 50  # Adjust batch size based on memory
@@ -72,7 +72,7 @@ for i in range(0, len(mitre_texts), batch_size):
 
     all_embeddings.append(embeddings)
 
-    print(f"✅ Processed batch {i // batch_size + 1}/{(len(mitre_texts) // batch_size) + 1}")
+    print(f"Processed batch {i // batch_size + 1}/{(len(mitre_texts) // batch_size) + 1}")
 
 # Concatenate all embeddings into a single array
 mitre_embeddings = np.concatenate(all_embeddings, axis=0)
@@ -82,4 +82,4 @@ np.save("../data/mitre_embeddings.npy", mitre_embeddings)
 with open("../data/mitre_ids.json", "w") as f:
     json.dump(mitre_ids, f)
 
-print(f"✅ Stored {len(mitre_ids)} MITRE ATT&CK embeddings in '../data/mitre_embeddings.npy'!")
+print(f"Stored {len(mitre_ids)} MITRE ATT&CK embeddings in '../data/mitre_embeddings.npy'!")

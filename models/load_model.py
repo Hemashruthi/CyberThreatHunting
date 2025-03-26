@@ -8,14 +8,17 @@ import numpy as np
 model_name = "jackaduma/SecBERT"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+model.eval()  # Set model to evaluation mode
 
-# Connect to SQLite & Load Preprocessed Logs (LIMIT to 1000 logs)
+# Connect to SQLite & Load Preprocessed Logs (LIMIT to 50,000 logs)
 conn = sqlite3.connect("../data/logs.db")
-df = pd.read_csv("../data/preprocessed_logs.csv").head(1000)
+df = pd.read_csv("../data/preprocessed_logs.csv").head(50000)  # Load first 50,000 logs
 conn.close()
 
 # Print column names for debugging
-print("✅ Available Columns:", df.columns)
+print("Available Columns:", df.columns)
 
 # Construct `llm_input` column
 df["llm_input"] = (
@@ -25,11 +28,11 @@ df["llm_input"] = (
     df["Protocol"].astype(str) + " | " +
     df["Info"].astype(str)
 )
-print("✅ llm_input column created!")
+print(f"llm_input column created for {len(df)} logs!")
 
 # Batch processing logs into embeddings
 texts = df["llm_input"].tolist()  # List of log texts
-batch_size = 100  # Adjust batch size if needed
+batch_size = 512  # Adjust batch size if needed
 all_embeddings = []
 
 for i in range(0, len(texts), batch_size):
@@ -42,13 +45,13 @@ for i in range(0, len(texts), batch_size):
         truncation=True, 
         padding=True, 
         max_length=512
-    )
+    ).to(device)
 
     # Ensure batch processing inside loop
     with torch.no_grad():
         outputs = model(**inputs)
     
-    # Extract embeddings
+    # Extract embeddings (mean pooling over token embeddings)
     embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().cpu().numpy()
 
     # Ensure correct shape for single batch items
@@ -57,10 +60,12 @@ for i in range(0, len(texts), batch_size):
 
     all_embeddings.append(embeddings)
 
+    print(f"Processed {min(i + batch_size, len(texts))}/{len(texts)} logs...")
+
 # Concatenate all batch embeddings into a single array
 all_embeddings = np.concatenate(all_embeddings, axis=0)
 
 # Save embeddings for later use
 np.save("../data/log_embeddings.npy", all_embeddings)
 
-print("✅ Successfully processed 1000 logs and saved embeddings!")
+print(f"Successfully processed {len(all_embeddings)} logs and saved embeddings!")

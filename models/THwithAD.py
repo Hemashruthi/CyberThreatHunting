@@ -63,7 +63,7 @@ def hypothesis_generation(log_embeddings, log_metadata, mitre_embeddings, mitre_
                     "mitre_attack_name": mitre_attack_name,
                     "confidence_score": float(confidence_score),
                     "risk_level": "High",  # Since only high-confidence events are included
-                    "suggested_mitigation": "Apply general best security practices and monitor for unusual activity."  # Generic mitigation
+                   # "suggested_mitigation": "Apply general best security practices and monitor for unusual activity."  # Generic mitigation
                 }
 
                 hypotheses.append(hypothesis)
@@ -102,7 +102,7 @@ def anomaly_detection(log_embeddings, log_metadata, detected_log_ids):
                 "event_type": event_type,
                 "anomaly_score": float(score),
                 "risk_level": "High",  # Since anomalies are considered high risk
-                "suggested_mitigation": "Investigate the unusual pattern of behavior and apply appropriate security measures."  # Example mitigation for unknown threats
+                #"suggested_mitigation": "Investigate the unusual pattern of behavior and apply appropriate security measures."  # Example mitigation for unknown threats
             }
 
             anomaly_hypotheses.append(hypothesis)
@@ -125,7 +125,7 @@ try:
     sampled_log_metadata = log_metadata.iloc[sample_indices].reset_index(drop=True)
 
     # Print column names for debugging
-    print("✅ Available Columns in log_metadata:", sampled_log_metadata.columns)
+    print("Available Columns in log_metadata:", sampled_log_metadata.columns)
 
     mitre_embeddings = np.load(mitre_embeddings_path, allow_pickle=True)
 
@@ -157,9 +157,9 @@ try:
     with open("../data/hypotheses.json", "w") as f:
         json.dump(all_hypotheses_serializable, f, indent=4)
 
-    print(f"✅ Generated and stored hypotheses in '../data/hypotheses.json'!")
+    print(f"Generated and stored hypotheses in '../data/hypotheses.json'!")
 
 except FileNotFoundError as e:
-    print(f"❌ File not found: {e.filename}")
+    print(f"File not found: {e.filename}")
 except Exception as e:
-    print(f"❌ An error occurred: {str(e)}")
+    print(f"An error occurred: {str(e)}")
